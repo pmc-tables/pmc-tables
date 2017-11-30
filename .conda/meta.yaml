@@ -1,0 +1,27 @@
+package:
+  name: pmc_tables
+  version: 0.1.0
+
+source:
+  path: ../
+
+build:
+  script: $PYTHON setup.py install --single-version-externally-managed --record=record.txt
+  number: 0
+
+requirements:
+  build:
+    - python
+    - pandoc
+    - pypandoc
+  run:
+    - python
+
+test:
+  imports:
+    - pmc_tables
+
+about:
+  home: http://gitlab.com/ostrokach/pmc_tables
+  license: MIT License
+  summary: "Extract relational tables from PubMed Central."

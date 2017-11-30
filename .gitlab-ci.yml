@@ -1,0 +1,149 @@
+image: condaforge/linux-anvil:latest
+
+stages:
+  - build
+  - test
+  - deploy
+
+
+# === Variables ===
+
+variables:
+  PACKAGE_VERSION: 0.1.0
+
+.py36: &py36
+  PYTHON_VERSION: "3.6"
+
+
+# === Build ===
+
+.conda_configure: &conda_configure
+  before_script:
+    # Conda configure
+    - conda config --append channels bioconda
+    - conda config --append channels ostrokach-forge
+    - case "${PACKAGE_VERSION}" in
+      *dev*)
+        conda config --append channels kimlab/label/dev;
+        conda config --append channels kimlab;
+        conda config --append channels ostrokach/label/dev;
+        conda config --append channels ostrokach;
+      ;;
+      *)
+        conda config --append channels kimlab;
+        conda config --append channels ostrokach;
+      ;;
+      esac
+    - conda update -yq conda
+
+.build: &build
+  stage: build
+  <<: *conda_configure
+  script:
+    # Build conda packages
+    - cd $CI_PROJECT_DIR/.conda
+    - conda build --python $PYTHON_VERSION .
+    # Save built packages as artifacts
+    - mkdir $CI_PROJECT_DIR/conda-bld
+    - cp -r /opt/conda/conda-bld/{linux-64,noarch} $CI_PROJECT_DIR/conda-bld
+  artifacts:
+    paths:
+    - conda-bld
+
+build-py36:
+  <<: *build
+  variables:
+    <<: [*py36]
+
+
+# === Test ===
+
+.test: &test
+  stage: test
+  script:
+    # Conda install
+    - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
+    - conda index /opt/conda/conda-bld/
+    - conda install -yq --use-local "python=$PYTHON_VERSION" ${CI_PROJECT_NAME}
+    - SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
+    # Test
+    - pip install -q flake8 pytest-cov codecov pytest-logging hypothesis
+    - flake8
+    - py.test --cov="${SITE_PACKAGES}/${CI_PROJECT_NAME}"
+    - conda env export -f $CI_PROJECT_DIR/environment-py${PYTHON_VERSION/./}.yml
+  coverage: /^TOTAL.* (\d+\%)/
+  artifacts:
+    paths:
+    - environment-py${PYTHON_VERSION/./}.yml
+
+test-py36:
+  <<: [*conda_configure, *test]
+  dependencies:
+    - build-py36
+  variables:
+    <<: [*py36]
+
+
+# === Pages ===
+
+.docs: &docs
+  stage: test
+  script:
+    # Conda install
+    - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
+    - conda index /opt/conda/conda-bld/
+    - conda install -yq --use-local "python=$PYTHON_VERSION" $CI_PROJECT_NAME
+    # Build docs
+    - conda install -yq nbconvert ipython ipykernel pandoc
+    - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx
+    - sphinx-build docs public
+
+test-pages:
+  <<: [*conda_configure, *docs]
+  dependencies:
+    - build-py36
+  variables:
+    <<: [*py36]
+  except:
+    - master
+    - tags
+
+pages:
+  <<: [*conda_configure, *docs]
+  dependencies:
+    - build-py36
+  variables:
+    <<: [*py36]
+  only:
+    - master
+    - tags
+  except:
+    - triggers
+  artifacts:
+    paths:
+    - public
+
+
+# === Deploy ===
+
+.deploy: &deploy
+  stage: deploy
+  script:
+    # Conda configure
+    - case "${PACKAGE_VERSION}" in
+      *dev*)
+        anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u ${CI_PROJECT_NAMESPACE} --label dev --force
+      ;;
+      *)
+        anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u ${CI_PROJECT_NAMESPACE}
+      ;;
+      esac
+  only:
+    - master
+  except:
+    - triggers
+
+deploy-py36:
+  <<: *deploy
+  dependencies:
+    - build-py36
