@@ -6,7 +6,7 @@ source:
   path: ../
 
 build:
-  script: $PYTHON setup.py install --single-version-externally-managed --record=record.txt --no-deps
+  script: $PYTHON setup.py install --single-version-externally-managed --record=record.txt
   number: 0
 
 requirements:
