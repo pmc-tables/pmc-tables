@@ -3,8 +3,18 @@ import pytest
 
 from click.testing import CliRunner
 
-from pmc_tables import pmc_tables
+import pmc_tables
 from pmc_tables import cli
+
+
+@pytest.mark.parametrize('attribute', ['__author__', '__email__', '__version__'])
+def test_attribute(attribute):
+    assert getattr(pmc_tables, attribute)
+
+
+def test_main():
+    from pmc_tables import pmc_tables
+    assert pmc_tables
 
 
 def test_command_line_interface():
