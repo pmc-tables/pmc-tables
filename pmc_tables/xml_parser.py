@@ -1,20 +1,26 @@
+"""
+PubMed XML Parser
+-----------------
+
+This module contains functions for parsing XML files created using
+the PubMed Send to: File (XML) option.
+"""
 import xml.etree.ElementTree as ET
-from collections import namedtuple
-from typing import List
+from typing import List, NamedTuple
 
 from kmtools import system_tools
 
-PubmedRow = namedtuple("PubmedRow", [
-    'pmid',
-    'title',
-    'authors',
-    'journal',
-    'year_published',
-    'abstract',
-    'mesh_terms',
-    'doi',
-    'pmc',
-])
+
+class PubmedRow(NamedTuple):
+    pmid: str
+    title: str
+    authors: str
+    journal: str
+    year_published: str
+    abstract: str
+    mesh_terms: str
+    doi: str
+    pmc: str
 
 
 def parse_pubmed_xml_file(xml_file: str) -> List[PubmedRow]:
