@@ -76,7 +76,7 @@ class EbiDownloader:
                 url = f"{source_url}/{subset}/{containing_folder}/{pmc_id}.zip"
                 try:
                     filename, headers = urllib.request.urlretrieve(url, output)
-                except (ValueError, urllib.request.URLError) as e:
+                except (ValueError, urllib.request.URLError) as e:  # type: ignore
                     logger.debug("Could not download file %s.\n%s.", url, e)
                     continue
                 return filename
