@@ -24,7 +24,11 @@ class PubmedRow(NamedTuple):
 
 
 def parse_pubmed_xml_file(xml_file: str) -> List[PubmedRow]:
-    """Parse PubMed XML File."""
+    """Parse PubMed XML File.
+    
+    This function works both for files downloaded using the "Send to:" option
+    on the PubMed website and files available from the NCBI FTP site.
+    """
     data = []
     for child in _iter_root_children(xml_file):
         row = _process_child(child)
