@@ -9,7 +9,6 @@ import os.path as op
 import urllib.request
 from ftplib import FTP
 from typing import List, Tuple, Optional
-from zipfile import ZipFile
 
 logger = logging.getLogger(__name__)
 
