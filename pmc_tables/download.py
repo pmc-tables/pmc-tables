@@ -1,4 +1,8 @@
-"""Downlaod data from PubMed Central."""
+"""
+Downlaod data from PubMed Central.
+
+This is done in Jupyter notebooks right now...
+"""
 import logging
 import os
 import os.path as op
@@ -9,18 +13,21 @@ from zipfile import ZipFile
 
 logger = logging.getLogger(__name__)
 
+NCBI_FTP_URL = 'ftp://ftp.ncbi.nlm.nih.gov'
 EBI_FTP_URL = 'ftp.ebi.ac.uk'
 EBI_PMC_PATH = '/pub/databases/pmc'
 
 
 def get_ftp_client(host: str) -> FTP:
     if host == 'ncbi':
-        raise NotImplementedError
+        ftp = FTP(NCBI_FTP_URL)
+        ftp.sendcmd('USER anonymous')
+        ftp.sendcmd('PASS anonymous')
     elif host == 'ebi':
         ftp = FTP(EBI_FTP_URL)
         ftp.login()
     else:
-        raise Exception
+        raise Exception(f"Unknown host: {host}.")
     return ftp
 
 
