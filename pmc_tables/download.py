@@ -1,14 +1,18 @@
 """
 Downlaod data from PubMed Central.
-
-This is done in Jupyter notebooks right now...
 """
+import datetime
 import logging
 import os
 import os.path as op
+import shutil
+import tempfile
 import urllib.request
+import json
+import zipfile
+import tarfile
 from ftplib import FTP
-from typing import List, Tuple, Optional
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +20,12 @@ NCBI_FTP_URL = 'ftp://ftp.ncbi.nlm.nih.gov'
 EBI_FTP_URL = 'ftp.ebi.ac.uk'
 EBI_PMC_PATH = '/pub/databases/pmc'
 
+EXTENSIONS_TO_KEEP = ['.nxml', '.xml', '.csv', '.csv.gz', '.tsv', '.tsv.gz', '.xls', '.xlsx']
+
 
 def get_ftp_client(host: str) -> FTP:
+    """Get FTP client for NCBI or EBI."""
+    assert host in ['ncbi', 'ebi']
     if host == 'ncbi':
         ftp = FTP(NCBI_FTP_URL)
         ftp.sendcmd('USER anonymous')
@@ -25,77 +33,77 @@ def get_ftp_client(host: str) -> FTP:
     elif host == 'ebi':
         ftp = FTP(EBI_FTP_URL)
         ftp.login()
-    else:
-        raise Exception(f"Unknown host: {host}.")
     return ftp
 
 
-def get_ebi_suppl_folder_list(ftp: FTP) -> Tuple[List[str], List[str]]:
-    ftp.cwd(f"{EBI_PMC_PATH}/suppl/OA/")
-    oa_folders = ftp.nlst()
-    ftp.cwd(f"{EBI_PMC_PATH}/suppl/NON-OA/")
-    non_oa_folders = ftp.nlst()
-    return oa_folders, non_oa_folders
+def download_archive(archive_path: str,
+                     output_file: str,
+                     global_tmp_dir: str = '/dev/shm',
+                     **kwargs) -> Dict[str, str]:
+    # info
+    info = kwargs
+    info['created_on'] = datetime.datetime.now().isoformat()
 
+    # archive_file
+    if archive_path.startswith('ftp://'):
+        suffix = op.basename(archive_path).partition('.')[-1]
+        archive_file_obj = tempfile.NamedTemporaryFile(dir=global_tmp_dir, suffix=f'.{suffix}')
+        archive_file = archive_file_obj.name
+        urllib.request.urlretrieve(archive_path, archive_file)
+    elif not op.isfile(archive_path):
+        raise FileNotFoundError(archive_path)
+    else:
+        archive_file = archive_path
+    info['archive_file'] = archive_file
 
-def get_containing_folder(pmc_id: str, folders: List[str]) -> str:
-    for folder in folders:
-        idx = int(pmc_id[3:])
-        start, end = (int(f[3:]) for f in folder.split('-'))
-        if start <= idx <= end:
-            return folder
-    raise Exception(f"Could not find containing folder for PMC: {pmc_id}!")
-
-
-class EbiDownloader:
-
-    source_urls = [
-        f"ftp://{EBI_FTP_URL}{EBI_PMC_PATH}/suppl",
-    ]
-
-    def __init__(self, archive_dir=None):
-        self.ftp = get_ftp_client('ebi')
-        if archive_dir is None:
-            self.archive_dir = op.join(os.getcwd(), '.pmc')
+    # Create new zip archive
+    with tempfile.TemporaryDirectory(dir=global_tmp_dir) as tmp_dir:
+        if archive_file.endswith('.tar.gz') or archive_file.endswith('.zip'):
+            shutil.unpack_archive(archive_file, extract_dir=tmp_dir)
+        elif archive_file.endswith('.xml'):
+            shutil.copy(archive_file, op.join(tmp_dir, op.basename(archive_file)))
         else:
-            self.archive_dir = archive_dir
-        self.oa_folders, self.non_oa_folders = self._get_listdir()
+            raise Exception()
 
-    def download_ebi_suppl(self, pmc_id: str) -> Optional[str]:
-        for subset in ['OA', 'NON-OA']:
-            containing_folder = get_containing_folder(pmc_id, self.oa_folders
-                                                      if subset == 'OA' else self.non_oa_folders)
+        all_files = recursive_listdir(tmp_dir)
+        removed_files = remove_unkept_files(all_files)
+        kept_files = [f for f in all_files if f not in removed_files and op.isfile(f)]
+        info['all_files'] = [op.relpath(f, tmp_dir) for f in all_files]
+        info['kept_files'] = [op.relpath(f, tmp_dir) for f in kept_files]
 
-            output = op.join(self.archive_dir, 'suppl', subset, containing_folder, f"{pmc_id}.zip")
-            if op.isfile(output):
-                logger.debug("File %s already exists.", output)
-                return output
-            os.makedirs(op.dirname(output), exist_ok=True)
+        info_file = op.join(tmp_dir, 'info.json')
+        with open(info_file, 'wt') as fout:
+            json.dump(info, fout)
+        kept_files.append(info_file)
 
-            for source_url in self.source_urls:
-                url = f"{source_url}/{subset}/{containing_folder}/{pmc_id}.zip"
-                try:
-                    filename, headers = urllib.request.urlretrieve(url, output)
-                except (ValueError, urllib.request.URLError) as e:  # type: ignore
-                    logger.debug("Could not download file %s.\n%s.", url, e)
-                    continue
-                return filename
+        os.makedirs(op.dirname(output_file), exist_ok=True)
+        write_to_archive(kept_files, output_file)
+    return info
 
-        logger.error(f"Could not download suppl file for {pmc_id}!")
-        return None
 
-    def _get_listdir(self):
-        oa_listdir_file = op.join(self.archive_dir, 'oa.listdir')
-        non_oa_listdir_file = op.join(self.archive_dir, 'non-oa.listdir')
-        if op.isfile(oa_listdir_file) and op.isfile(non_oa_listdir_file):
-            with open(oa_listdir_file) as fin:
-                oa_folders = [line.strip() for line in fin if line.strip()]
-            with open(non_oa_listdir_file) as fin:
-                non_oa_folders = [line.strip() for line in fin if line.strip()]
-        else:
-            oa_folders, non_oa_folders = get_ebi_suppl_folder_list(self.ftp)
-            with open(oa_listdir_file, 'wt') as fout:
-                fout.write('\n'.join(oa_folders))
-            with open(non_oa_listdir_file, 'wt') as fout:
-                fout.write('\n'.join(non_oa_folders))
-        return oa_folders, non_oa_folders
+def write_to_archive(file_list: List[str], output_file: str) -> None:
+    if output_file.endswith('.tar.gz'):
+        with tarfile.open(output_file, 'w:gz') as tar_file:
+            for file in file_list:
+                tar_file.add(file, op.basename(file))
+    elif output_file.endswith('.zip'):
+        with zipfile.ZipFile(output_file, 'w', compression=zipfile.ZIP_DEFLATED) as zip_file:
+            for file in file_list:
+                zip_file.write(file, op.basename(file))
+    else:
+        raise Exception("Unsupported archive format!")
+
+
+def recursive_listdir(path):
+    return [op.join(dp, f) for dp, dn, fn in os.walk(path) for f in fn]
+
+
+def remove_unkept_files(file_list) -> List[str]:
+    removed_files = []
+    for filepath in file_list:
+        if not op.isfile(filepath):
+            continue
+        elif not any(filepath.endswith(ext) for ext in EXTENSIONS_TO_KEEP):
+            os.remove(filepath)
+            removed_files.append(filepath)
+    return removed_files
