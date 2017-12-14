@@ -1,14 +1,42 @@
-import os.path as op
 import logging
+import os.path as op
+import time
 
 import requests
 from bs4 import BeautifulSoup
+
+from selenium import webdriver
 
 logger = logging.getLogger(__name__)
 
 # Access data from sci-hub
 SCIHUB_BASE_URL = 'http://sci-hub.cc/'
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:27.0) Gecko/20100101 Firefox/27.0'}
+
+
+def download_pdf(doi, download_folder):
+    url = _get_scihub_url(doi)
+    options = webdriver.ChromeOptions()
+    profile = {
+        "plugins.plugins_list": [{
+            "enabled": False,
+            "name": "Chrome PDF Viewer"
+        }],
+        "download.default_directory": download_folder,
+        "download.extensions_to_open": ""
+    }
+    options.add_experimental_option("prefs", profile)
+    driver = webdriver.Chrome(chrome_options=options)
+    #     driver = webdriver.Firefox()
+    driver.get(url)
+    try:
+        filename = url.split("/")[4].split(".cfm")[0]
+    except IndexError as e:
+        print(e)
+        filename = url
+    print(filename)
+    time.sleep(10)
+    driver.close()
 
 
 def download_article(doi, output_dir):
