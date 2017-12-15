@@ -1,4 +1,6 @@
+import base64
 import os
+import zlib
 from pathlib import Path
 from typing import List, Union
 
@@ -8,6 +10,18 @@ import pyarrow as pa
 def recursive_listdir(path: Union[str, Path]) -> List[Path]:
     """Like `os.listdir`, but recursive."""
     return [Path(dp).joinpath(f) for dp, dn, fn in os.walk(path) for f in fn]
+
+
+def compress_to_b85(table: bytes) -> bytes:
+    table_gz = zlib.compress(table, level=9)
+    table_gz_b85 = base64.b85encode(table_gz)
+    return table_gz_b85
+
+
+def decompress_from_b85(table_gz_b85: bytes) -> bytes:
+    table_gz = base64.b85decode(table_gz_b85)
+    table = zlib.decompress(table_gz)
+    return table
 
 
 def df_to_arrow(df, integer_columns=None, integer_dtypes=None):

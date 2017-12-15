@@ -7,6 +7,7 @@ import logging
 import os
 import os.path as op
 import shutil
+import socket
 import tarfile
 import tempfile
 import urllib.request
@@ -23,30 +24,42 @@ EXTENSIONS_TO_KEEP = ['.nxml', '.xml', '.csv', '.csv.gz', '.tsv', '.tsv.gz', '.x
 
 def get_pmc_archive(archive_file: str, output_file: str, global_tmp_dir: str = '/dev/shm',
                     **kwargs) -> Dict[str, str]:
-    archive_path = _get_archive(archive_file, global_tmp_dir)
+    """Download a PMC archive file from a remote FTP server or a local mirror.
 
-    info = {
-        **kwargs,
-        'created_on': datetime.datetime.now().isoformat(),
-        'archive_file': archive_file,
-    }
+    Args:
+        archive_file: The location of the source archive file.
+        output_file: Location where to save the processed archive file.
+        global_temp_dir: Temporary directory where all temporary files should be stored.
+            Change this to point to a RAM disk or '/dev/shm' to speed up computation.
 
+    Returns:
+        A dictionary containing information about the created file.
+    """
     with tempfile.TemporaryDirectory(dir=global_tmp_dir) as tmp_dir:
+        archive_path = _get_archive(archive_file, tmp_dir)
+        info = {
+            **kwargs,
+            'created_on': datetime.datetime.now().isoformat(),
+            'archive_file': archive_file,
+        }
         _create_archive_subset(archive_path, Path(output_file), Path(tmp_dir), info)
 
     return info
 
 
-def _get_archive(archive_file: str, global_tmp_dir: str) -> Path:
-    """Return a `Path` object for the `archive_file`.
+def _get_archive(archive_file: str, tmp_dir: str) -> Path:
+    """Return a `Path` object to the archive file.
 
-    If `archive_file` is a URL, download the file first.
+    If `archive_file` is a URL, download the file first. In this case,
+    the user is responsible for deleting the file when they are done with it.
     """
+    socket.setdefaulttimeout(60)
     if archive_file.startswith('ftp://'):
         suffix = op.basename(archive_file).partition('.')[-1]
-        archive_file_obj = tempfile.NamedTemporaryFile(dir=global_tmp_dir, suffix=f'.{suffix}')
+        archive_file_obj = tempfile.NamedTemporaryFile(
+            dir=tmp_dir, suffix=f'.{suffix}', delete=False)
+        urllib.request.urlretrieve(archive_file, archive_file_obj.name)
         archive_path = Path(archive_file_obj.name)
-        urllib.request.urlretrieve(archive_file, archive_path.as_posix())
     elif op.isfile(archive_file):
         archive_path = Path(archive_file)
     else:
@@ -55,8 +68,7 @@ def _get_archive(archive_file: str, global_tmp_dir: str) -> Path:
 
 
 def _create_archive_subset(archive_path: Path, output_path: Path, tmp_path: Path, info: dict):
-    """Create a new archive which contains only a subset of files from the input archive.
-    """
+    """Create a new archive which contains only a subset of files from the input archive."""
     _extract_archive(archive_path, tmp_path)
 
     all_files = recursive_listdir(tmp_path)
@@ -69,11 +81,12 @@ def _create_archive_subset(archive_path: Path, output_path: Path, tmp_path: Path
     })
     kept_files.append(_write_info_file(info, tmp_path))
 
-    output_path.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     _write_to_archive(kept_files, output_path)
 
 
 def _extract_archive(archive_path: Path, tmp_path: Path):
+    """Extract all files from a .zip or .tar.gz archive."""
     if '.tar' in archive_path.suffixes or '.zip' in archive_path.suffixes:
         shutil.unpack_archive(archive_path.as_posix(), extract_dir=tmp_path)
     elif archive_path.suffix == '.xml':
@@ -96,6 +109,7 @@ def _remove_unkept_files(file_list: List[Path],
 
 
 def _write_info_file(info: dict, tmp_path: Path) -> Path:
+    """Save `info` dictionary to a file."""
     info_file = tmp_path.joinpath('info.json')
     with open(info_file, 'wt') as fout:
         json.dump(info, fout)

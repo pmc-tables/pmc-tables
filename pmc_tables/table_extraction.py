@@ -1,6 +1,15 @@
+from collections import Counter
 from typing import List, Optional
 
 import pandas as pd
+
+from pmc_tables.io.html import read_html
+
+
+def html_to_dataframe(table: bytes) -> pd.DataFrame:
+    table_df = read_html(table.decode('utf-8'))
+    assert len(table_df) == 1
+    return table_df[0]
 
 
 def process_dataframe(df: pd.DataFrame, copy=True) -> pd.DataFrame:
@@ -16,7 +25,7 @@ def format_columns(columns: List[str]) -> List[str]:
     """Clean up DataFrame columns."""
     new_columns = []
     for column in columns:
-        if isinstance(column, str):
+        if isinstance(column, (str, int)):
             new_column = _format_column(column)
         else:
             new_column = ""
@@ -30,8 +39,13 @@ def format_columns(columns: List[str]) -> List[str]:
 
 
 def _format_column(col: str) -> str:
-    if col.startswith('Unnamed:'):
-        return ''
+    if isinstance(col, (list, tuple)):
+        return ' / '.join(col)
+    elif isinstance(col, str):
+        if col.startswith('Unnamed:'):
+            return ''
+        else:
+            return col
     else:
         return col
 
@@ -43,9 +57,9 @@ def add_section_index(df: pd.DataFrame, copy=True) -> Optional[pd.DataFrame]:
     index_ = []
     keep_index = []
     for i, row in enumerate(df.itertuples()):
-        row_items = [v for v in row[1:] if pd.notnull(v)]
-        if len(set(row_items)) == 1:
-            index_.append(row_items[0])
+        row_items = Counter(v for v in row[1:] if pd.notnull(v))
+        if len(row_items) == 1 and row_items.most_common()[0][1] > 1:
+            index_.append(row_items.most_common()[0][0])
         elif i > 0:
             assert index_
             index_.append(index_[-1])
@@ -53,6 +67,6 @@ def add_section_index(df: pd.DataFrame, copy=True) -> Optional[pd.DataFrame]:
         else:
             return df
     df['index_'] = index_
-    new_columns = [['index_'] + [c for c in df.columns if c != 'index_']]
+    new_columns = ['index_'] + [c for c in df.columns if c != 'index_']
     df = df.reindex(index=keep_index, columns=new_columns)
     return df
