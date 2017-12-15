@@ -6,8 +6,7 @@ __version__ = '0.1.0'
 
 from .io.html import read_html
 from .utils import *
-from .ftp_client import get_ftp_client
-from .downloader import get_pmc_archive
+from .ftp_client import *
+from .downloaders import *
 from .table_extraction import *
-from .pmc_xml_parser import *
-from .pubmed_xml_parser import *
+from .xml_parsers import *
