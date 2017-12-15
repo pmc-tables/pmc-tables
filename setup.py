@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """The setup script."""
 import os.path as op
 import warnings
