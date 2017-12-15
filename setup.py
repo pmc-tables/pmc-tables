@@ -46,7 +46,7 @@ setup(
     author="Alexey Strokach",
     author_email='alex.strokach@utoronto.ca',
     url='https://gitlab.com/ostrokach/pmc_tables',
-    packages=find_packages(include=['pmc_tables']),
+    packages=find_packages(),
     entry_points={
         'console_scripts': [
             'pmc_tables=pmc_tables.cli:main'
