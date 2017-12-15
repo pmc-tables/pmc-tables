@@ -14,7 +14,7 @@ import zipfile
 from pathlib import Path
 from typing import Dict, List
 
-from .utils import recursive_listdir
+from pmc_tables.utils import recursive_listdir
 
 logger = logging.getLogger(__name__)
 
