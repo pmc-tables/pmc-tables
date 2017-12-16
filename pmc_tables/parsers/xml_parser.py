@@ -8,11 +8,11 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Tuple
+from typing import List, NamedTuple, Tuple
 
 import pandas as pd
 
-import pmc_tables
+from pmc_tables.utils import compress_to_b85
 
 from ._pandas.io.html import read_html
 
@@ -32,23 +32,23 @@ def read_xml(table: bytes) -> pd.DataFrame:
     return table_df[0]
 
 
-def extract_tables_from_xml(xml_file: Path) -> dict:
+def extract_tables_from_xml(xml_file: Path) -> List[Tuple[str, dict, pd.DataFrame]]:
     tree = ET.parse(xml_file.as_posix())
     table_wraps = tree.findall('.//table-wrap')
     num_tables = len(tree.findall('.//table'))
 
-    data: Dict[str, Any] = {}
+    data = []
     for table_wrap in table_wraps:
         tw_row, tables = _process_table_wrap(table_wrap)
         for i, table in enumerate(tables):
-            unique = f"/{xml_file.name}/{tw_row.id_}-{i}"
             table_bytes = _process_table(table)
-            table_df = pmc_tables.read_html(table_bytes)
-            data[unique] = {
-                **tw_row._asdict(),
-                'table_html': pmc_tables.compress_to_b85(table_bytes).decode('ascii'),
-                'table_df': table_df,
-            }
+            table_df = read_html(table_bytes)
+            data.append(
+                (f"/{xml_file.name}/{tw_row.id_}-{i}",
+                 {**tw_row._asdict(),
+                  'table_html': compress_to_b85(table_bytes).decode('ascii')},
+                 table_df,
+            ))
     assert len(data) == num_tables
     return data
 

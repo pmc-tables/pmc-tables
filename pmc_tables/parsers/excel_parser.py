@@ -1,15 +1,16 @@
 from pathlib import Path
+from typing import List, Tuple
 
 import pandas as pd
 
 
-def read_excel(filepath: Path) -> pd.DataFrame:
-    sheets = pd.read_excel(filepath.as_posix(), sheet_name=None)
-    data = {}
+def extract_tables_from_excel(excel_file: Path) -> List[Tuple[str, dict, pd.DataFrame]]:
+    sheets = pd.read_excel(excel_file.as_posix(), sheet_name=None)
+    data = []
     for i, (key, df) in enumerate(sheets.items()):
-        unique = f"/{filepath.name}/sheet_{i}"
-        data[unique] = {
-            'label': key,
-            'table_df': df,
-        }
+        data.append((
+            f"/{excel_file.name}/sheet_{i}",
+            {'label': key},
+            df
+        ))
     return data
