@@ -2,26 +2,22 @@
 HTML IO.
 
 """
-
+import collections
+import numbers
 import os
 import re
-import numbers
-import collections
-
 from distutils.version import LooseVersion
 
 import numpy as np
-
+from pandas import Series
+from pandas.compat import (binary_type, iteritems, lfilter, lmap, lrange, raise_with_traceback,
+                           string_types, u)
+from pandas.core.common import AbstractMethodError, flatten
 from pandas.core.dtypes.common import is_list_like
 from pandas.errors import EmptyDataError
-from pandas.io.common import (_is_url, urlopen,
-                              parse_url, _validate_header_arg)
-from pandas.io.parsers import TextParser
-from pandas.compat import (lrange, lmap, lfilter, u, string_types, iteritems,
-                           raise_with_traceback, binary_type)
-from pandas import Series
-from pandas.core.common import (AbstractMethodError, flatten)
+from pandas.io.common import _is_url, _validate_header_arg, parse_url, urlopen
 from pandas.io.formats.printing import pprint_thing
+from pandas.io.parsers import TextParser
 
 _IMPORTS = False
 _HAS_BS4 = False

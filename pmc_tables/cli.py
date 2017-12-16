@@ -2,25 +2,25 @@
 
 import click
 
-from typing import List
+# from typing import List
 
 
-# class Repo:
+class Repo:
 
-#     def __init__(self, home, verbose):
-#         self.home = home
-#         self.verbose = verbose
+    def __init__(self, home, verbose):
+        self.home = home
+        self.verbose = verbose
 
 
-# @click.group()
-# @click.option('--pmc-home', envvar='PMC_HOME', default='.pmc')
-# @click.option('-v', '--verbose', count=True)
-# @click.pass_context
-# def main(ctx, pmc_home, verbose):
-#     """Console script for pmc_tables."""
-#     click.echo("Replace this message by putting your code into " "pmc_tables.cli.main")
-#     click.echo("See click documentation at http://click.pocoo.org/")
-#     ctx.obj = Repo(pmc_home, verbose)
+@click.group()
+@click.option('--pmc-home', envvar='PMC_HOME', default='.pmc')
+@click.option('-v', '--verbose', count=True)
+@click.pass_context
+def main(ctx, pmc_home, verbose):
+    """Console script for pmc_tables."""
+    click.echo("Replace this message by putting your code into " "pmc_tables.cli.main")
+    click.echo("See click documentation at http://click.pocoo.org/")
+    ctx.obj = Repo(pmc_home, verbose)
 
 
 # @click.command()

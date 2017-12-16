@@ -5,32 +5,27 @@ import os
 import re
 import threading
 import warnings
+from distutils.version import LooseVersion
 
+import numpy as np
+import pandas as pd
+import pandas.util.testing as tm
+import pytest
+from numpy.random import rand
+from pandas import DataFrame, Index, MultiIndex, Series, Timestamp, date_range, read_csv
+from pandas.compat import PY3, BytesIO, StringIO, is_platform_windows, map, string_types, zip
+from pandas.io.common import URLError, file_path_to_url, urlopen
+from pandas.util.testing import makeCustomDataframe as mkdf
+from pandas.util.testing import network
+
+import pmc_tables.parsers._pandas.io.html
+from pmc_tables.parsers._pandas.io.html import read_html
 
 # imports needed for Python 3.x but will fail under Python 2.x
 try:
     from importlib import import_module, reload
 except ImportError:
     import_module = __import__
-
-
-from distutils.version import LooseVersion
-
-import pytest
-
-import numpy as np
-from numpy.random import rand
-
-from pandas import (DataFrame, MultiIndex, read_csv, Timestamp, Index,
-                    date_range, Series)
-from pandas.compat import (map, zip, StringIO, string_types, BytesIO,
-                           is_platform_windows, PY3)
-from pandas.io.common import URLError, urlopen, file_path_to_url
-import pmc_tables.io.html
-from pmc_tables.io.html import read_html
-
-import pandas.util.testing as tm
-from pandas.util.testing import makeCustomDataframe as mkdf, network
 
 
 def _have_module(module_name):
@@ -54,8 +49,7 @@ def _skip_if_none_of(module_names):
             if bs4.__version__ == LooseVersion('4.2.0'):
                 pytest.skip("Bad version of bs4: 4.2.0")
     else:
-        not_found = [module_name for module_name in module_names if not
-                     _have_module(module_name)]
+        not_found = [module_name for module_name in module_names if not _have_module(module_name)]
         if set(not_found) & set(module_names):
             pytest.skip("{0!r} not found".format(not_found))
         if 'bs4' in module_names:
@@ -64,17 +58,16 @@ def _skip_if_none_of(module_names):
                 pytest.skip("Bad version of bs4: 4.2.0")
 
 
-DATA_PATH = tm.get_data_path()
+DATA_PATH = os.path.join(pd.__path__[0], 'tests', 'io', 'data')
 
 
 def assert_framelist_equal(list1, list2, *args, **kwargs):
     assert len(list1) == len(list2), ('lists are not of equal size '
                                       'len(list1) == {0}, '
-                                      'len(list2) == {1}'.format(len(list1),
-                                                                 len(list2)))
+                                      'len(list2) == {1}'.format(len(list1), len(list2)))
     msg = 'not all list elements are DataFrames'
-    both_frames = all(map(lambda x, y: isinstance(x, DataFrame) and
-                          isinstance(y, DataFrame), list1, list2))
+    both_frames = all(
+        map(lambda x, y: isinstance(x, DataFrame) and isinstance(y, DataFrame), list1, list2))
     assert both_frames, msg
     for frame_i, frame_j in zip(list1, list2):
         tm.assert_frame_equal(frame_i, frame_j, *args, **kwargs)
@@ -85,9 +78,8 @@ def test_bs4_version_fails():
     _skip_if_none_of(('bs4', 'html5lib'))
     import bs4
     if bs4.__version__ == LooseVersion('4.2.0'):
-        tm.assert_raises(AssertionError, read_html, os.path.join(DATA_PATH,
-                                                                 "spam.html"),
-                         flavor='bs4')
+        tm.assert_raises(
+            AssertionError, read_html, os.path.join(DATA_PATH, "spam.html"), flavor='bs4')
 
 
 class ReadHtmlMixin(object):
@@ -110,8 +102,9 @@ class TestReadHtml(ReadHtmlMixin):
         _skip_if_none_of(('bs4', 'html5lib'))
 
     def test_to_html_compat(self):
-        df = mkdf(4, 3, data_gen_f=lambda *args: rand(), c_idx_names=False,
-                  r_idx_names=False).applymap('{0:.3f}'.format).astype(float)
+        df = mkdf(
+            4, 3, data_gen_f=lambda *args: rand(), c_idx_names=False, r_idx_names=False).applymap(
+                '{0:.3f}'.format).astype(float)
         out = df.to_html()
         res = self.read_html(out, attrs={'class': 'dataframe'}, index_col=0)[0]
         tm.assert_frame_equal(res, df)
@@ -119,8 +112,7 @@ class TestReadHtml(ReadHtmlMixin):
     @network
     def test_banklist_url(self):
         url = 'http://www.fdic.gov/bank/individual/failed/banklist.html'
-        df1 = self.read_html(url, 'First Federal Bank of Florida',
-                             attrs={"id": 'table'})
+        df1 = self.read_html(url, 'First Federal Bank of Florida', attrs={"id": 'table'})
         df2 = self.read_html(url, 'Metcalf Bank', attrs={'id': 'table'})
 
         assert_framelist_equal(df1, df2)
@@ -136,10 +128,8 @@ class TestReadHtml(ReadHtmlMixin):
 
     @pytest.mark.slow
     def test_banklist(self):
-        df1 = self.read_html(self.banklist_data, '.*Florida.*',
-                             attrs={'id': 'table'})
-        df2 = self.read_html(self.banklist_data, 'Metcalf Bank',
-                             attrs={'id': 'table'})
+        df1 = self.read_html(self.banklist_data, '.*Florida.*', attrs={'id': 'table'})
+        df2 = self.read_html(self.banklist_data, 'Metcalf Bank', attrs={'id': 'table'})
 
         assert_framelist_equal(df1, df2)
 
@@ -218,15 +208,13 @@ class TestReadHtml(ReadHtmlMixin):
         assert_framelist_equal(df1, df2)
 
     def test_skiprows_ndarray(self):
-        df1 = self.read_html(self.spam_data, '.*Water.*',
-                             skiprows=np.arange(2))
+        df1 = self.read_html(self.spam_data, '.*Water.*', skiprows=np.arange(2))
         df2 = self.read_html(self.spam_data, 'Unit', skiprows=np.arange(2))
 
         assert_framelist_equal(df1, df2)
 
     def test_skiprows_invalid(self):
-        with tm.assert_raises_regex(TypeError, 'is not a valid type '
-                                    'for skipping rows'):
+        with tm.assert_raises_regex(TypeError, 'is not a valid type ' 'for skipping rows'):
             self.read_html(self.spam_data, '.*Water.*', skiprows='asdf')
 
     def test_index(self):
@@ -235,14 +223,12 @@ class TestReadHtml(ReadHtmlMixin):
         assert_framelist_equal(df1, df2)
 
     def test_header_and_index_no_types(self):
-        df1 = self.read_html(self.spam_data, '.*Water.*', header=1,
-                             index_col=0)
+        df1 = self.read_html(self.spam_data, '.*Water.*', header=1, index_col=0)
         df2 = self.read_html(self.spam_data, 'Unit', header=1, index_col=0)
         assert_framelist_equal(df1, df2)
 
     def test_header_and_index_with_types(self):
-        df1 = self.read_html(self.spam_data, '.*Water.*', header=1,
-                             index_col=0)
+        df1 = self.read_html(self.spam_data, '.*Water.*', header=1, index_col=0)
         df2 = self.read_html(self.spam_data, 'Unit', header=1, index_col=0)
         assert_framelist_equal(df1, df2)
 
@@ -291,16 +277,14 @@ class TestReadHtml(ReadHtmlMixin):
     def test_invalid_url(self):
         try:
             with pytest.raises(URLError):
-                self.read_html('http://www.a23950sdfa908sd.com',
-                               match='.*Water.*')
+                self.read_html('http://www.a23950sdfa908sd.com', match='.*Water.*')
         except ValueError as e:
             assert str(e) == 'No tables found'
 
     @pytest.mark.slow
     def test_file_url(self):
         url = self.banklist_data
-        dfs = self.read_html(file_path_to_url(url), 'First',
-                             attrs={'id': 'table'})
+        dfs = self.read_html(file_path_to_url(url), 'First', attrs={'id': 'table'})
         assert isinstance(dfs, list)
         for df in dfs:
             assert isinstance(df, DataFrame)
@@ -309,12 +293,10 @@ class TestReadHtml(ReadHtmlMixin):
     def test_invalid_table_attrs(self):
         url = self.banklist_data
         with tm.assert_raises_regex(ValueError, 'No tables found'):
-            self.read_html(url, 'First Federal Bank of Florida',
-                           attrs={'id': 'tasdfable'})
+            self.read_html(url, 'First Federal Bank of Florida', attrs={'id': 'tasdfable'})
 
     def _bank_data(self, *args, **kwargs):
-        return self.read_html(self.banklist_data, 'Metcalf',
-                              attrs={'id': 'table'}, *args, **kwargs)
+        return self.read_html(self.banklist_data, 'Metcalf', attrs={'id': 'table'}, *args, **kwargs)
 
     @pytest.mark.slow
     def test_multiindex_header(self):
@@ -351,16 +333,16 @@ class TestReadHtml(ReadHtmlMixin):
     @pytest.mark.slow
     def test_regex_idempotency(self):
         url = self.banklist_data
-        dfs = self.read_html(file_path_to_url(url),
-                             match=re.compile(re.compile('Florida')),
-                             attrs={'id': 'table'})
+        dfs = self.read_html(
+            file_path_to_url(url), match=re.compile(re.compile('Florida')), attrs={
+                'id': 'table'
+            })
         assert isinstance(dfs, list)
         for df in dfs:
             assert isinstance(df, DataFrame)
 
     def test_negative_skiprows(self):
-        with tm.assert_raises_regex(ValueError,
-                                    r'\(you passed a negative value\)'):
+        with tm.assert_raises_regex(ValueError, r'\(you passed a negative value\)'):
             self.read_html(self.spam_data, 'Water', skiprows=-1)
 
     @network
@@ -380,8 +362,7 @@ class TestReadHtml(ReadHtmlMixin):
     def test_thousands_macau_stats(self):
         all_non_nan_table_index = -2
         macau_data = os.path.join(DATA_PATH, 'macau.html')
-        dfs = self.read_html(macau_data, index_col=0,
-                             attrs={'class': 'style1'})
+        dfs = self.read_html(macau_data, index_col=0, attrs={'class': 'style1'})
         df = dfs[all_non_nan_table_index]
 
         assert not any(s.isnull().any() for _, s in df.iteritems())
@@ -470,8 +451,7 @@ class TestReadHtml(ReadHtmlMixin):
         </table>'''
 
         data1 = data_template.format(footer="")
-        data2 = data_template.format(
-            footer="<tr><td>footA</td><th>footB</th></tr>")
+        data2 = data_template.format(footer="<tr><td>footA</td><th>footB</th></tr>")
 
         d1 = {'A': ['bodyA'], 'B': ['bodyB']}
         d2 = {'A': ['bodyA', 'footA'], 'B': ['bodyB', 'footB']}
@@ -518,18 +498,17 @@ class TestReadHtml(ReadHtmlMixin):
 
     def test_nyse_wsj_commas_table(self):
         data = os.path.join(DATA_PATH, 'nyse_wsj.html')
-        df = self.read_html(data, index_col=0, header=0,
-                            attrs={'class': 'mdcTable'})[0]
+        df = self.read_html(data, index_col=0, header=0, attrs={'class': 'mdcTable'})[0]
 
-        columns = Index(['Issue(Roll over for charts and headlines)',
-                         'Volume', 'Price', 'Chg', '% Chg'])
+        columns = Index(
+            ['Issue(Roll over for charts and headlines)', 'Volume', 'Price', 'Chg', '% Chg'])
         nrows = 100
         assert df.shape[0] == nrows
         tm.assert_index_equal(df.columns, columns)
 
     @pytest.mark.slow
     def test_banklist_header(self):
-        from pmc_tables.io.html import _remove_whitespace
+        from pmc_tables.parsers._pandas.io.html import _remove_whitespace
 
         def try_remove_ws(x):
             try:
@@ -537,33 +516,34 @@ class TestReadHtml(ReadHtmlMixin):
             except AttributeError:
                 return x
 
-        df = self.read_html(self.banklist_data, 'Metcalf',
-                            attrs={'id': 'table'})[0]
-        ground_truth = read_csv(os.path.join(DATA_PATH, 'banklist.csv'),
-                                converters={'Updated Date': Timestamp,
-                                            'Closing Date': Timestamp})
+        df = self.read_html(self.banklist_data, 'Metcalf', attrs={'id': 'table'})[0]
+        ground_truth = read_csv(
+            os.path.join(DATA_PATH, 'banklist.csv'),
+            converters={
+                'Updated Date': Timestamp,
+                'Closing Date': Timestamp
+            })
         assert df.shape == ground_truth.shape
-        old = ['First Vietnamese American BankIn Vietnamese',
-               'Westernbank Puerto RicoEn Espanol',
-               'R-G Premier Bank of Puerto RicoEn Espanol',
-               'EurobankEn Espanol', 'Sanderson State BankEn Espanol',
-               'Washington Mutual Bank(Including its subsidiary Washington '
-               'Mutual Bank FSB)',
-               'Silver State BankEn Espanol',
-               'AmTrade International BankEn Espanol',
-               'Hamilton Bank, NAEn Espanol',
-               'The Citizens Savings BankPioneer Community Bank, Inc.']
-        new = ['First Vietnamese American Bank', 'Westernbank Puerto Rico',
-               'R-G Premier Bank of Puerto Rico', 'Eurobank',
-               'Sanderson State Bank', 'Washington Mutual Bank',
-               'Silver State Bank', 'AmTrade International Bank',
-               'Hamilton Bank, NA', 'The Citizens Savings Bank']
+        old = [
+            'First Vietnamese American BankIn Vietnamese', 'Westernbank Puerto RicoEn Espanol',
+            'R-G Premier Bank of Puerto RicoEn Espanol', 'EurobankEn Espanol',
+            'Sanderson State BankEn Espanol',
+            'Washington Mutual Bank(Including its subsidiary Washington '
+            'Mutual Bank FSB)', 'Silver State BankEn Espanol',
+            'AmTrade International BankEn Espanol', 'Hamilton Bank, NAEn Espanol',
+            'The Citizens Savings BankPioneer Community Bank, Inc.'
+        ]
+        new = [
+            'First Vietnamese American Bank', 'Westernbank Puerto Rico',
+            'R-G Premier Bank of Puerto Rico', 'Eurobank', 'Sanderson State Bank',
+            'Washington Mutual Bank', 'Silver State Bank', 'AmTrade International Bank',
+            'Hamilton Bank, NA', 'The Citizens Savings Bank'
+        ]
         dfnew = df.applymap(try_remove_ws).replace(old, new)
         gtnew = ground_truth.applymap(try_remove_ws)
         converted = dfnew._convert(datetime=True, numeric=True)
         date_cols = ['Closing Date', 'Updated Date']
-        converted[date_cols] = converted[date_cols]._convert(datetime=True,
-                                                             coerce=True)
+        converted[date_cols] = converted[date_cols]._convert(datetime=True, coerce=True)
         tm.assert_frame_equal(converted, gtnew)
 
     @pytest.mark.slow
@@ -573,8 +553,7 @@ class TestReadHtml(ReadHtmlMixin):
             raw_text = f.read()
 
         assert gc in raw_text
-        df = self.read_html(self.banklist_data, 'Gold Canyon',
-                            attrs={'id': 'table'})[0]
+        df = self.read_html(self.banklist_data, 'Gold Canyon', attrs={'id': 'table'})[0]
         assert gc in df.to_string()
 
     def test_different_number_of_rows(self):
@@ -749,7 +728,7 @@ class TestReadHtml(ReadHtmlMixin):
                             <td>5</td>
                     </table>"""
         expected = self.read_html(expected)[0]  # header is explicit
-        res = self.read_html(out)[0]            # infer header
+        res = self.read_html(out)[0]  # infer header
         tm.assert_frame_equal(expected, res)
         res2 = self.read_html(out, header=0)[0]  # manually set header
         tm.assert_frame_equal(expected, res2)
@@ -764,10 +743,11 @@ class TestReadHtml(ReadHtmlMixin):
 
     def test_parse_dates_combine(self):
         raw_dates = Series(date_range('1/1/2001', periods=10))
-        df = DataFrame({'date': raw_dates.map(lambda x: str(x.date())),
-                        'time': raw_dates.map(lambda x: str(x.time()))})
-        res = self.read_html(df.to_html(), parse_dates={'datetime': [1, 2]},
-                             index_col=1)
+        df = DataFrame({
+            'date': raw_dates.map(lambda x: str(x.date())),
+            'time': raw_dates.map(lambda x: str(x.time()))
+        })
+        res = self.read_html(df.to_html(), parse_dates={'datetime': [1, 2]}, index_col=1)
         newdf = DataFrame({'datetime': raw_dates})
         tm.assert_frame_equal(newdf, res[0])
 
@@ -876,14 +856,12 @@ class TestReadHtml(ReadHtmlMixin):
 
     def test_multiple_header_rows(self):
         # Issue #13434
-        expected_df = DataFrame(data=[("Hillary", 68, "D"),
-                                      ("Bernie", 74, "D"),
-                                      ("Donald", 69, "R")])
+        expected_df = DataFrame(data=[("Hillary", 68, "D"), ("Bernie", 74, "D"), ("Donald", 69,
+                                                                                  "R")])
         expected_df.columns = [["Unnamed: 0_level_0", "Age", "Party"],
-                               ["Name", "Unnamed: 1_level_1",
-                                "Unnamed: 2_level_1"]]
+                               ["Name", "Unnamed: 1_level_1", "Unnamed: 2_level_1"]]
         html = expected_df.to_html(index=False)
-        html_df = read_html(html, )[0]
+        html_df = read_html(html,)[0]
         tm.assert_frame_equal(expected_df, html_df)
 
 
@@ -908,8 +886,7 @@ class TestReadHtmlEncoding(object):
 
     def read_file_like(self, f, encoding):
         with open(f, 'rb') as fobj:
-            return self.read_html(BytesIO(fobj.read()), encoding=encoding,
-                                  index_col=0)
+            return self.read_html(BytesIO(fobj.read()), encoding=encoding, index_col=0)
 
     def read_string(self, f, encoding):
         with open(f, 'rb') as fobj:
@@ -982,10 +959,11 @@ class TestReadHtmlLxml(ReadHtmlMixin):
 
     def test_parse_dates_combine(self):
         raw_dates = Series(date_range('1/1/2001', periods=10))
-        df = DataFrame({'date': raw_dates.map(lambda x: str(x.date())),
-                        'time': raw_dates.map(lambda x: str(x.time()))})
-        res = self.read_html(df.to_html(), parse_dates={'datetime': [1, 2]},
-                             index_col=1)
+        df = DataFrame({
+            'date': raw_dates.map(lambda x: str(x.date())),
+            'time': raw_dates.map(lambda x: str(x.time()))
+        })
+        res = self.read_html(df.to_html(), parse_dates={'datetime': [1, 2]}, index_col=1)
         newdf = DataFrame({'datetime': raw_dates})
         tm.assert_frame_equal(newdf, res[0])
 
@@ -1060,7 +1038,7 @@ def test_importcheck_thread_safety():
     # see gh-16928
 
     # force import check by reinitalising global vars in html.py
-    reload(pmc_tables.io.html)
+    reload(pmc_tables.parsers._pandas.io.html)
 
     filename = os.path.join(DATA_PATH, 'valid_markup.html')
     helper_thread1 = ErrorThread(target=read_html, args=(filename,))

@@ -10,7 +10,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Tuple
 
+import pandas as pd
+
 import pmc_tables
+
+from ._pandas.io.html import read_html
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +24,12 @@ class TableWrapRow(NamedTuple):
     label: str
     caption: str
     footer: str
+
+
+def read_xml(table: bytes) -> pd.DataFrame:
+    table_df = read_html(table)
+    assert len(table_df) == 1
+    return table_df[0]
 
 
 def extract_tables_from_xml(xml_file: Path) -> dict:
@@ -33,11 +43,11 @@ def extract_tables_from_xml(xml_file: Path) -> dict:
         for i, table in enumerate(tables):
             unique = f"/{xml_file.name}/{tw_row.id_}-{i}"
             table_bytes = _process_table(table)
-            table_df = pmc_tables.html_to_dataframe(table_bytes)
+            table_df = pmc_tables.read_html(table_bytes)
             data[unique] = {
                 **tw_row._asdict(),
                 'table_html': pmc_tables.compress_to_b85(table_bytes).decode('ascii'),
-                'table_df': table_df.to_dict('split'),
+                'table_df': table_df,
             }
     assert len(data) == num_tables
     return data

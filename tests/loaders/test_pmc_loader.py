@@ -1,7 +1,7 @@
 import os.path as op
 import tempfile
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -23,14 +23,14 @@ def compare_archive_contents(archive1, archive2):
 
 
 @pytest.mark.parametrize('source_url, source_file, output_file', TEST_FILES)
-def test_download_archive_1(source_url, source_file, output_file):
+def test_get_pmc_archive_1(source_url, source_file, output_file):
     with tempfile.NamedTemporaryFile(suffix='.zip') as zip_file:
-        pmc_tables.download_archive(source_url, zip_file.name)
+        pmc_tables.get_pmc_archive(source_url, zip_file.name)
         compare_archive_contents(BASE_PATH.joinpath(output_file), zip_file.name)
 
 
 @pytest.mark.parametrize('source_url, source_file, output_file', TEST_FILES)
-def test_download_archive_2(source_url, source_file, output_file):
+def test_get_pmc_archive_2(source_url, source_file, output_file):
     with tempfile.NamedTemporaryFile(suffix='.zip') as zip_file:
-        pmc_tables.download_archive(BASE_PATH.joinpath(source_file).as_posix(), zip_file.name)
+        pmc_tables.get_pmc_archive(BASE_PATH.joinpath(source_file).as_posix(), zip_file.name)
         compare_archive_contents(BASE_PATH.joinpath(output_file), zip_file.name)

@@ -67,8 +67,9 @@ build-py36:
     - conda install -yq --use-local "python=$PYTHON_VERSION" ${CI_PROJECT_NAME}
     - SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
     # Test
-    - pip install -q flake8 pytest pytest-cov pytest-benchmark hypothesis
+    - pip install -q flake8 isort pytest pytest-cov pytest-benchmark hypothesis
     - flake8
+    - isort -c
     - py.test --cov="${SITE_PACKAGES}/${CI_PROJECT_NAME}"
     - conda env export -f $CI_PROJECT_DIR/environment-py${PYTHON_VERSION/./}.yml
   coverage: /^TOTAL.* (\d+\%)/

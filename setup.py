@@ -2,7 +2,8 @@
 """The setup script."""
 import os.path as op
 import warnings
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 
 def _read_md_as_rst(file):

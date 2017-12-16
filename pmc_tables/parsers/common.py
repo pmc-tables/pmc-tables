@@ -3,14 +3,6 @@ from typing import List, Optional
 
 import pandas as pd
 
-from pmc_tables.io.html import read_html
-
-
-def html_to_dataframe(table: bytes) -> pd.DataFrame:
-    table_df = read_html(table.decode('utf-8'))
-    assert len(table_df) == 1
-    return table_df[0]
-
 
 def process_dataframe(df: pd.DataFrame, copy=True) -> pd.DataFrame:
     """Run the entire DataFrame processing pipeline."""
@@ -23,17 +15,26 @@ def process_dataframe(df: pd.DataFrame, copy=True) -> pd.DataFrame:
 
 def format_columns(columns: List[str]) -> List[str]:
     """Clean up DataFrame columns."""
-    new_columns = []
-    for column in columns:
+    new_columns: str = []
+    for column_idx, column in enumerate(columns):
         if isinstance(column, (str, int)):
             new_column = _format_column(column)
-        else:
+        elif isinstance(column, (list, tuple)):
             new_column = ""
             for col in column:
                 new_col = _format_column(col)
                 if new_col:
                     new_column += ' / ' + new_col
             new_column = new_column.strip('/ ')
+        else:
+            new_column = _format_column(str(column))
+        # Make sure there are no duplicates
+        new_column_ref = new_column
+        idx = 0
+        while new_column in new_columns:
+            idx += 1
+            new_column = new_column_ref + '_' + str(idx)
+        # Add new column
         new_columns.append(new_column)
     return new_columns
 
