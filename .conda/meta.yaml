@@ -18,6 +18,10 @@ requirements:
     - python
     - click
     - selenium
+    - numpy
+    - pandas
+    - pyarrow
+    - pytables
 
 test:
   imports:
