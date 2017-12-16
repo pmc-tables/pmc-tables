@@ -17,6 +17,7 @@ requirements:
   run:
     - python
     - requests
+    - beautifulsoup4
     - click
     - selenium
     - numpy
