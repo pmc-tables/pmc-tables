@@ -71,13 +71,3 @@ def add_section_index(df: pd.DataFrame, copy=True) -> Optional[pd.DataFrame]:
     new_columns = ['index_'] + [c for c in df.columns if c != 'index_']
     df = df.reindex(index=keep_index, columns=new_columns)
     return df
-
-
-def add_first_row_to_header(df):
-    columns = list(df.columns)
-    assert all(isinstance(c, str) for c in columns)
-    for i in range(len(columns)):
-        columns[i] = (columns[i], df.iloc[0, i])
-    df = df.drop(df.index[0], axis=0)
-    df.columns = format_columns(columns)
-    return df
