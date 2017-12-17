@@ -19,6 +19,7 @@ requirements:
     - requests
     - beautifulsoup4
     - click
+    - smart_open
     - selenium
     - numpy
     - pandas

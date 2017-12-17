@@ -8,7 +8,7 @@ the PubMed Send to: File (XML) option.
 import xml.etree.ElementTree as ET
 from typing import List, NamedTuple
 
-from kmtools import system_tools
+import smart_open
 
 
 class PubmedRow(NamedTuple):
@@ -37,7 +37,7 @@ def parse_pubmed_xml_file(xml_file: str) -> List[PubmedRow]:
 
 
 def _iter_root_children(xml_file):
-    with system_tools.open_compressed(xml_file) as ifh:
+    with smart_open.smart_open(xml_file) as ifh:
         tree = ET.parse(ifh)
     root = tree.getroot()
     yield from root
