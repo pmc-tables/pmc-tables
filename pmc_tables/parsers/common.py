@@ -15,7 +15,7 @@ def process_dataframe(df: pd.DataFrame, copy=True) -> pd.DataFrame:
 
 def format_columns(columns: List[str]) -> List[str]:
     """Clean up DataFrame columns."""
-    new_columns: str = []
+    new_columns: List[str] = []
     for column_idx, column in enumerate(columns):
         if isinstance(column, (str, int)):
             new_column = _format_column(column)
@@ -24,8 +24,8 @@ def format_columns(columns: List[str]) -> List[str]:
             for col in column:
                 new_col = _format_column(col)
                 if new_col:
-                    new_column += ' / ' + new_col
-            new_column = new_column.strip('/ ')
+                    new_column += f' | {new_col}' if new_col and pd.notnull(new_col) else ''
+            new_column = new_column.strip('| ')
         else:
             new_column = _format_column(str(column))
         # Make sure there are no duplicates
@@ -70,4 +70,14 @@ def add_section_index(df: pd.DataFrame, copy=True) -> Optional[pd.DataFrame]:
     df['index_'] = index_
     new_columns = ['index_'] + [c for c in df.columns if c != 'index_']
     df = df.reindex(index=keep_index, columns=new_columns)
+    return df
+
+
+def add_first_row_to_header(df):
+    columns = list(df.columns)
+    assert all(isinstance(c, str) for c in columns)
+    for i in range(len(columns)):
+        columns[i] = (columns[i], df.iloc[0, i])
+    df = df.drop(df.index[0], axis=0)
+    df.columns = format_columns(columns)
     return df

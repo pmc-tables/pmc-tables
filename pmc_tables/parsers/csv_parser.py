@@ -20,7 +20,6 @@ def extract_tables_from_csv(csv_file: Path) -> List[Tuple[str, dict, pd.DataFram
         if len(df.columns) > 1:
             break
     if df is None:
-        raise pmc_tables.errors.ParserError(f"Could not parse file: {csv_file}.")
+        raise pmc_tables.ParserError(f"Could not parse file: {csv_file}.")
     data = [(f"/{csv_file.name}/sheet_0", {'label': None}, df)]
-
     return data

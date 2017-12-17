@@ -42,7 +42,7 @@ def extract_tables_from_xml(xml_file: Path) -> List[Tuple[str, dict, pd.DataFram
         tw_row, tables = _process_table_wrap(table_wrap)
         for i, table in enumerate(tables):
             table_bytes = _process_table(table)
-            table_df = read_html(table_bytes)
+            table_df = read_xml(table_bytes)
             data.append(
                 (f"/{xml_file.name}/{tw_row.id_}-{i}",
                  {**tw_row._asdict(),

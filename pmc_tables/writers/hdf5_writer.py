@@ -1,35 +1,61 @@
+import logging
+import re
+
 import pmc_tables
 
-
-def debug_df(df):
-    columns = list(df.columns)
-    for i in range(len(columns)):
-        columns[i] = (columns[i], df.iloc[0, i])
-    df = df.drop(df.index[0], axis=0)
-    return df
+logger = logging.getLogger(__name__)
 
 
-def write_record_to_hdf5(info, data, store):
-    pmc_id = info['pmc_id']
-    for table_id, table_info in data.items():
-        table_df = table_info.pop('table_df')
-        table_df = pmc_tables.process_dataframe(table_df)
-        table_df = table_df.convert_objects()
-        table_key = f"/{pmc_id}{table_id}"
-        _try_writing_table(table_key, table_df, store)
-        pmc_tables.write_hdf5_metadata(table_key, table_info, store)
-    pmc_tables.write_hdf5_metadata(f"/{pmc_id}", info, store)
+def write_hdf5_table_forcefully(key, df, store, max_tries=None, tried_fns=()):
+    if max_tries is None:
+        max_tries = len(df.columns) + 1
+    try:
+        return pmc_tables.write_hdf5_table(key, df, store)
+    except Exception as e:
+        logger.warning("Encountered error `%s`", e)
+        if max_tries == 0:
+            raise e
+        # Try some fixes
+        fixer_fns = fixer_functions()
+        for fixer_fn in fixer_fns:
+            result = fixer_fn(str(e), key, df, store, max_tries - 1, tried_fns)
+            if result is not None:
+                return result
+        raise e
 
 
-def _try_writing_table(key, df, store):
-    debug_functions = iter([debug_df])
-    while True:
+def fixer_functions():
+    yield _fix_serialize_column_error
+
+
+def _fix_serialize_column_error(error, key, df, store, max_tries, tried_fns):
+    match = re.findall(
+        "Cannot serialize the column \[(.*)\] because\nits data contents are \[(.*)\] object dtype",
+        error)
+    if not match:
+        return None
+    column_name, column_dtype = match[0]
+    if 'mixed' in column_dtype and tried_fns.count(pmc_tables.add_first_row_to_header) < 1:
         try:
-            pmc_tables.write_hdf5_table(key, df, store)
-            return
-        except Exception as e:
-            try:
-                fn = next(debug_functions)
-            except StopIteration:
-                raise e
-            df = fn(df)
+            _df = pmc_tables.add_first_row_to_header(df)
+            return write_hdf5_table_forcefully(key, _df, store, max_tries + 1,
+                                               tried_fns + (pmc_tables.add_first_row_to_header,))
+        except Exception:
+            pass
+    if column_dtype in ['integer', 'floating']:
+        _df = df.copy()
+        _df[column_name] = _df[column_name].astype(float)
+        return write_hdf5_table_forcefully(key, _df, store, max_tries, tried_fns)
+    elif column_dtype in ['mixed-integer']:
+        try:
+            _df = df.copy()
+            _df[column_name] = _df[column_name].astype(float)
+        except Exception:
+            pass
+        else:
+            return write_hdf5_table_forcefully(key, _df, store, max_tries, tried_fns)
+    logger.warning("Converting column `%s` with values `%s` to str", column_name,
+                   df[column_name].values[:10])
+    _df = df.copy()
+    _df[column_name] = _df[column_name].astype(str)
+    return write_hdf5_table_forcefully(key, _df, store, max_tries, tried_fns)
