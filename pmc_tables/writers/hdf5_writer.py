@@ -10,9 +10,11 @@ import pmc_tables
 logger = logging.getLogger(__name__)
 
 
-def write_hdf5_table_forcefully(key, df, store, max_tries=None, tried_fns=()):
-    if max_tries is None:
-        max_tries = len(df.columns) + 1
+class _UnhandledError(Exception):
+    pass
+
+
+def write_hdf5_table_forcefully(key, df, store, max_tries=5, tried_fns=()):
     try:
         return pmc_tables.write_hdf5_table(key, df, store)
     except Exception as e:
@@ -23,64 +25,66 @@ def write_hdf5_table_forcefully(key, df, store, max_tries=None, tried_fns=()):
         for fixer_fn in fixer_functions():
             try:
                 fixed_df = fixer_fn(df, str(e))
-                pmc_tables.write_hdf5_table(key, fixed_df, store)
-            except Exception:
-                continue
+                return pmc_tables.write_hdf5_table(key, fixed_df, store)
+            # except _UnhandledError:
+            #     continue
+            except Exception as e2:
+                logger.warning("Another error occured trying to fix the first error. (%s: %s)",
+                               type(e2), e2)
+                raise e2
         raise e
 
 
 def fixer_functions():
-    # yield _fix_extra_headers_and_footers
-    pass
+    yield fix_extra_headers_and_footers
 
 
-class _UnhandledError(Exception):
-    pass
-
-
-def _fix_extra_headers_and_footers(df: pd.DataFrame, error: Optional[str]=None):
-    if error and not error.startswith("Cannot serializez the column"):
-        raise _UnhandledError()
-    # Get a mask for mied columns
-    mixed_columns = _find_mixed_columns(df)
-    is_number_mask = _get_is_number_mask(df, mixed_columns)
+def fix_extra_headers_and_footers(df: pd.DataFrame, error: Optional[str]=None):
+    if error and not error.startswith("Cannot serialize the column"):
+        raise _UnhandledError(f"Unsupported error message: {error}.")
+    # Get a mask for mixed columns
+    is_number_mask = _get_is_number_mask(df)
     # Make sure at least 90% of mixed columns are numbers
-    _check_mostly_number(is_number_mask)
+    _check_mostly_numbers(is_number_mask)
     # Extract the header and / or the footer
-    header_slice, footer_slice = _find_header_and_footer(is_number_mask)
-    df = _add_rows_to_header(df, row_idxs=header_slice)
-    df = df.drop(pd.Index(range(*footer_slice)), axis=0)
+    header_range, footer_range = _find_header_and_footer(is_number_mask)
+    if header_range:
+        df = _add_rows_to_header(df, header_range)
+    if footer_range:
+        df = df.drop(df.index[footer_range], axis=0)
     # Make sure columns can be floats now...
-    df = _format_mixed_columns(df, mixed_columns)
+    df = _format_mixed_columns(df)
     return df
 
 
-def _find_mixed_columns(df: pd.DataFrame) -> List[str]:
+def _get_is_number_mask(df: pd.DataFrame) -> pd.Series:
     object_columns = df.dtypes[df.dtypes == object].index.tolist()
-    mixed_columns = [
-        c for c in object_columns if any(isinstance(v, (int, float)) for v in df[c].values)
-    ]
-    return mixed_columns
-
-
-def _get_is_number_mask(df: pd.DataFrame, mixed_columns: List[str]) -> pd.Series:
+    # Mixed columns are all columns taht are not entirely string or null
+    is_string_df = pd.DataFrame(
+        {c: [(isinstance(v, str) or pd.isnull(v)) for v in df[c].values]
+         for c in object_columns},
+        columns=object_columns)
+    is_string_s = is_string_df.all(axis=0)
+    # Number mask indicates whether all mixed columns in a given row are numbers
+    mixed_columns = is_string_s[~is_string_s].index.tolist()
     is_number_df = pd.DataFrame(
         {c: [isinstance(v, (int, float)) for v in df[c].values]
-         for c in mixed_columns},
-        columns=mixed_columns)
-    is_number_s = is_number_df.all(axis=1)
-    return is_number_s
+         for c in object_columns},
+        columns=object_columns)
+    is_number_mask = is_number_df[mixed_columns].all(axis=1)
+    return is_number_mask
 
 
-def _check_mostly_number(is_number_mask, cutoff=0.9):
-    is_number_count = Counter(is_number_mask)
+def _check_mostly_numbers(is_number_mask: pd.Series, cutoff: float=0.9) -> None:
+    is_number_count = Counter(is_number_mask.values)
     frac_number = is_number_count[True] / (is_number_count[True] + is_number_count[False])
-    if frac_number < 0.9:
+    cutoff = min(cutoff, 1 - 1 / len(is_number_count))
+    if frac_number < cutoff:
         raise _UnhandledError(
             f"The fraction of numbers in mixed columns is too low ({frac_number}).")
 
 
-def _find_header_and_footer(is_number_s: pd.Series) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+def _find_header_and_footer(is_number_s: pd.Series) -> Tuple[range, range]:
     header_start = 0
     header_stop = None
     footer_start = None
@@ -88,22 +92,24 @@ def _find_header_and_footer(is_number_s: pd.Series) -> Tuple[Tuple[int, int], Tu
     for i in range(len(is_number_s)):
         if header_stop is None and is_number_s[i]:
             header_stop = i
-        elif footer_start is None and not is_number_s[i]:
+        elif header_stop is not None and footer_start is None and not is_number_s[i]:
             footer_start = i
-    max_permissible_offset = min(5, len(is_number_s) // 20)
-    if ((header_stop - header_start) > max_permissible_offset or
-        (footer_stop - footer_start) > max_permissible_offset):
-        raise _UnhandledError("Either the header or the footer is larger than allowed.")
-    return (header_start, header_stop), (footer_start, footer_stop)
+    max_permissible_offset = min(5, len(is_number_s) // 20 + 1)
+    if header_stop is None or (header_stop - header_start) > max_permissible_offset:
+        header_stop = 0
+    if footer_start is None or (footer_stop - footer_start) > max_permissible_offset:
+        footer_start = len(is_number_s)
+    return range(header_start, header_stop), range(footer_start, footer_stop)
 
 
-def _add_rows_to_header(df, row_idxs=(0,)):
+def _add_rows_to_header(df, header_range=range(0, 1)):
     columns = list(df.columns)
     assert all(isinstance(c, str) for c in columns)
-    for i in row_idxs:
-        for j in range(len(columns)):
-            columns[i] = (columns[i], df.iloc[i, j])
-    df = df.drop(pd.Index(df.index[row_idxs]), axis=0)
+    columns = [(c,) for c in columns]
+    for r_idx in header_range:
+        for c_idx in range(len(columns)):
+            columns[c_idx] = columns[c_idx] + (df.iloc[r_idx, c_idx],)
+    df = df.drop(df.index[header_range], axis=0)
     df.columns = pmc_tables.format_columns(columns)
     return df
 

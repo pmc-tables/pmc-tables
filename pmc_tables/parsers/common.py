@@ -41,7 +41,7 @@ def format_columns(columns: List[str]) -> List[str]:
 
 def _format_column(col: str) -> str:
     if isinstance(col, (list, tuple)):
-        return ' / '.join(col)
+        return ' / '.join(str(c) for c in col)
     elif isinstance(col, str):
         if col.startswith('Unnamed:'):
             return ''
