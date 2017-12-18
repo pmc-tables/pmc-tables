@@ -24,7 +24,7 @@ def write_hdf5_metadata(key: str, value: dict, store: pd.HDFStore):
     for attr_key, attr_value in value.items():
         node = _get_or_create_node(key, store)
         if attr_key in _RESERVED_ATTRIBUTES:
-            raise pmc_tables.ReservedAttributeError(attr_key)
+            raise pmc_tables.ReservedAttributeError(attr_key)  # type: ignore
         try:
             node._f_setattr(attr_key, attr_value)
         except AttributeError as e:
