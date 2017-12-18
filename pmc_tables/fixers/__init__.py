@@ -16,20 +16,20 @@ HDF5_WRITER_EXCEPTIONS = (Exception)
 
 
 def fix_and_write_hdf5_table(key: str, df: pd.DataFrame, store: pd.HDFStore, info: dict) -> None:
-    info['fixers_applied'] = []
+    # Easy fixes
     df = _apply_fixes(df, info, default_fixers)
     try:
         return pmc_tables.write_hdf5_table(key, df, store)  # type: ignore
     except HDF5_WRITER_EXCEPTIONS as e:
         logger.warning("Encountered error `%s`", e)
         info['error_message'] = str(e)
-        df = _apply_fixes(df, info, error_fixers)
-        try:
-            return pmc_tables.write_hdf5_table(key, df, store)  # type: ignore
-        except HDF5_WRITER_EXCEPTIONS as e2:
-            logger.warning("Applying fixes %s did not solve the problem. (%s: %s)",
-                           info['fixers_applied'], type(e2), e2)
-            raise e
+    # More involved fixes
+    df = _apply_fixes(df, info, error_fixers)
+    try:
+        return pmc_tables.write_hdf5_table(key, df, store)  # type: ignore
+    except HDF5_WRITER_EXCEPTIONS as e2:
+        info['error_message_2'] = str(e2)
+        raise e2
 
 
 def default_fixers():
@@ -46,6 +46,9 @@ def error_fixers():
 
 
 def _apply_fixes(df, info, fixer_fns):
+    if 'fixers_applied' not in info:
+        info['fixers_applied'] = []
+
     for fixer_fn in fixer_fns():
         try:
             df = fixer_fn(df.copy(), info)
