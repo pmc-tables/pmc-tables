@@ -1,7 +1,8 @@
 import functools
 from pathlib import Path
+from typing import Callable, List, Tuple
+
 import pandas as pd
-from typing import List, Callable, Tuple
 
 
 def parser(fn: Callable):

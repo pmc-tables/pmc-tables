@@ -14,8 +14,8 @@ import pandas as pd
 
 from pmc_tables.utils import compress_to_b85
 
-from ._pandas.io.html import read_html
 from ._common import parser
+from ._pandas.io.html import read_html
 
 logger = logging.getLogger(__name__)
 
