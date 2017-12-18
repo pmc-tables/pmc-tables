@@ -1,19 +1,27 @@
 import pandas as pd
 import pytest
 
-import pmc_tables.cleaners._fix_extra_headers_and_footers as fix
+from pmc_tables.fixers import extra_headers_and_footers as fix
+from pmc_tables.fixers import _FixDoesNotApplyError
 
 TEST_DATA = [{
-    'df': pd.DataFrame(
+    'df':
+    pd.DataFrame(
         [['h1', 'h2', 'h3'], [1, 1.1, 'a'], [2, 2.2, 'b']],
         columns=['c1', 'c2', 'c3'],
         index=[0, 1, 2]),
-    'df_fixed': pd.DataFrame(
-        [[1, 1.1, 'a'], [2, 2.2, 'b']], columns=['c1 | h1', 'c2 | h2', 'c3 | h3'], index=[1, 2]),
-    'is_number_mask': pd.Series(
-        [False, True, True], index=[0, 1, 2]),
-    'header_range': range(0, 1),
-    'footer_range': range(3, 3),
+    'df_fixed':
+    pd.DataFrame(
+        [[1, 1.1, 'a'], [2, 2.2, 'b']],
+        columns=[('c1', 'h1'), ('c2', 'h2'), ('c3', 'h3')],
+        index=[1, 2],
+        dtype=object),
+    'is_number_mask':
+    pd.Series([False, True, True], index=[0, 1, 2]),
+    'header_range':
+    range(0, 1),
+    'footer_range':
+    range(3, 3),
 }]
 
 
@@ -39,5 +47,11 @@ def test__check_mostly_numbers(is_number_mask):
 
 @pytest.parametrize("df, df_fixed", TEST_DATA)
 def test_fix_extra_headers_and_footers(df, df_fixed):
-    df_fixed_ = fix.fix_extra_headers_and_footers(df)
+    with pytest.raises(_FixDoesNotApplyError):
+        fix.fix_extra_headers_and_footers(df.copy(), {})
+    with pytest.raises(_FixDoesNotApplyError):
+        fix.fix_extra_headers_and_footers(df.copy(), {'error_message': "Something bad happened..."})
+    df_fixed_ = fix.fix_extra_headers_and_footers(df.copy(), {
+        'error_message': "Cannot serialize the column ..."
+    })
     assert df_fixed_.equals(df_fixed)

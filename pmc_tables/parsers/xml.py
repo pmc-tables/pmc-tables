@@ -15,6 +15,7 @@ import pandas as pd
 from pmc_tables.utils import compress_to_b85
 
 from ._pandas.io.html import read_html
+from ._common import parser
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,8 @@ def read_xml(table: bytes) -> pd.DataFrame:
     return table_df[0]
 
 
-def extract_tables_from_xml(xml_file: Path) -> List[Tuple[str, dict, pd.DataFrame]]:
+@parser
+def xml_parser(xml_file: Path) -> List[Tuple[str, dict, pd.DataFrame]]:
     tree = ET.parse(xml_file.as_posix())
     table_wraps = tree.findall('.//table-wrap')
     num_tables = len(tree.findall('.//table'))

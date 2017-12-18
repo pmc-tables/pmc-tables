@@ -1,3 +1,3 @@
-from .csv_parser import *
-from .excel_parser import *
-from .xml_parser import *
+from .csv import *
+from .excel import *
+from .xml import *

@@ -4,12 +4,15 @@ from typing import List, Tuple
 
 import pandas as pd
 
-import pmc_tables
+import pmc_tables.errors
+
+from ._common import parser
 
 logger = logging.getLogger(__name__)
 
 
-def extract_tables_from_csv(csv_file: Path) -> List[Tuple[str, dict, pd.DataFrame]]:
+@parser
+def csv_parser(csv_file: Path) -> List[Tuple[str, dict, pd.DataFrame]]:
     df = None
     for sep in [',', '\t']:
         try:
@@ -20,6 +23,6 @@ def extract_tables_from_csv(csv_file: Path) -> List[Tuple[str, dict, pd.DataFram
         if len(df.columns) > 1:
             break
     if df is None:
-        raise pmc_tables.ParserError(f"Could not parse file: {csv_file}.")
+        raise pmc_tables.errors.ParserError(f"Could not parse file: {csv_file}.")
     data = [(f"/{csv_file.name}/sheet_0", {'label': None}, df)]
     return data

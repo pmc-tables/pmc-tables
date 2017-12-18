@@ -10,7 +10,7 @@ from .ftp_client import *
 from .loaders import *
 from .writers import *
 from .parsers import *
-from .cleaners import *
+from .fixers import *
 
 __all__ = ['errors', 'utils']
 from . import *

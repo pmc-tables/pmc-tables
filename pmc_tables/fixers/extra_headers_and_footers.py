@@ -1,23 +1,20 @@
 import logging
 from collections import Counter
-from typing import Optional, Tuple
+from typing import Tuple
 
 import pandas as pd
 
-import pmc_tables
-
 from ._errors import _FixDoesNotApplyError
-from ._common import _format_mixed_columns
 
 logger = logging.getLogger(__name__)
 
 
-def fix_extra_headers_and_footers(df: pd.DataFrame, error: Optional[str]=None):
+def fix_extra_headers_and_footers(df: pd.DataFrame, info: dict) -> pd.DataFrame:
     """Fix cases where the first / last row(s) in a DataFrame are actually headers / footers.
 
     Args:
         df: DataFrame to be fixed.
-        error: Error message encountered when trying to save `df`.
+        info: Dictionary containing the error message encountered when trying to save `df`.
 
     Returns:
         Fixed DataFrame.
@@ -25,8 +22,9 @@ def fix_extra_headers_and_footers(df: pd.DataFrame, error: Optional[str]=None):
     Raises:
         _FixDoesNotApplyError
     """
-    if error and not error.startswith("Cannot serialize the column"):
-        raise _FixDoesNotApplyError(f"Unsupported error message: {error}.")
+    error_message = info.get('error_message', '')
+    if not error_message.startswith("Cannot serialize the column"):
+        raise _FixDoesNotApplyError(f"Unsupported error message: {error_message}.")
     # Get a mask for mixed columns
     is_number_mask = _get_is_number_mask(df)
     # Make sure at least 90% of mixed columns are numbers
@@ -37,8 +35,6 @@ def fix_extra_headers_and_footers(df: pd.DataFrame, error: Optional[str]=None):
         df = _add_rows_to_header(df, header_range)
     if footer_range:
         df = df.drop(df.index[footer_range], axis=0)
-    # Make sure columns can be floats now...
-    df = _format_mixed_columns(df)
     return df
 
 
@@ -61,7 +57,7 @@ def _get_is_number_mask(df: pd.DataFrame) -> pd.Series:
     return is_number_mask
 
 
-def _check_mostly_numbers(is_number_mask: pd.Series, cutoff: float=0.9) -> None:
+def _check_mostly_numbers(is_number_mask: pd.Series, cutoff: float = 0.9) -> None:
     is_number_count = Counter(is_number_mask.values)
     frac_number = is_number_count[True] / (is_number_count[True] + is_number_count[False])
     cutoff = min(cutoff, 1 - 1 / len(is_number_count))
@@ -96,5 +92,5 @@ def _add_rows_to_header(df, header_range=range(0, 1)):
         for c_idx in range(len(columns)):
             columns[c_idx] = columns[c_idx] + (df.iloc[r_idx, c_idx],)
     df = df.drop(df.index[header_range], axis=0)
-    df.columns = pmc_tables.format_columns(columns)
+    df.columns = columns
     return df
