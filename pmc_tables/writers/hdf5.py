@@ -16,8 +16,8 @@ _RESERVED_ATTRIBUTES = [
 ]
 
 
-def write_hdf5_table(key: str, value: pd.DataFrame, store: pd.HDFStore):
-    store.put(key, value, format='table', encoding='utf-8')
+def write_hdf5_table(key: str, df: pd.DataFrame, store: pd.HDFStore):
+    store.put(key, df, format='table', encoding='utf-8')
 
 
 def write_hdf5_metadata(key: str, value: dict, store: pd.HDFStore):

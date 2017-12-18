@@ -1,7 +1,53 @@
+import logging
 from collections import Counter
 from typing import List, Optional
 
 import pandas as pd
+
+import pmc_tables
+
+from ._errors import _FixDoesNotApplyError, _CouldNotApplyFixError
+from ._fix_column_dtypes import fix_column_dtypes
+from ._fix_extra_headers_and_footers import fix_extra_headers_and_footers
+
+logger = logging.getLogger(__name__)
+
+HDF5_WRITER_EXCEPTIONS = (Exception)
+
+
+def fix_and_write_hdf5_table(key, df, store, max_tries=5, tried_fns=()):
+    for fixer_fn in default_fixers():
+        df = fixer_fn(df)
+    try:
+        return pmc_tables.write_hdf5_table(key, df, store)
+    except HDF5_WRITER_EXCEPTIONS as e:
+        logger.warning("Encountered error `%s`", e)
+        if max_tries == 0:
+            raise e
+        # Try some fixes
+        for fixer_fn in second_line_fixers():
+            try:
+                fixed_df = fixer_fn(df, str(e))
+            except _FixDoesNotApplyError:
+                continue
+            except _CouldNotApplyFixError as e2:
+                logger.debug("Could not apply fix `%s` because of an error. (%s: %s)")
+            try:
+                return pmc_tables.write_hdf5_table(key, fixed_df, store)
+            except HDF5_WRITER_EXCEPTIONS as e2:
+                logger.warning("Applying fix `%s` did not solve the problem. (%s: %s)",
+                               type(e2), e2)
+                continue
+        raise e
+
+
+def default_fixers():
+    yield process_dataframe
+
+
+def second_line_fixers():
+    yield fix_extra_headers_and_footers
+    yield fix_column_dtypes
 
 
 def process_dataframe(df: pd.DataFrame, copy=True) -> pd.DataFrame:
