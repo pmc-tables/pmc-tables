@@ -2,7 +2,7 @@
 
 
 [![conda](https://img.shields.io/conda/dn/ostrokach/pmc_tables.svg)](https://anaconda.org/ostrokach/pmc_tables/)
-[![docs](https://img.shields.io/badge/docs-v0.1.1-dev-blue.svg)](https://ostrokach.gitlab.io/pmc_tables/)
+[![docs](https://img.shields.io/badge/docs-v0.1.1-blue.svg)](https://ostrokach.gitlab.io/pmc_tables/)
 [![build status](https://gitlab.com/ostrokach/pmc_tables/badges/master/build.svg)](https://gitlab.com/ostrokach/pmc_tables/commits/master/)
 [![coverage report](https://gitlab.com/ostrokach/pmc_tables/badges/master/coverage.svg)](https://gitlab.com/ostrokach/pmc_tables/commits/master/)
 
