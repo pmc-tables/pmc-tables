@@ -1,4 +1,5 @@
 class ParserError(Exception):
+    """Error encountered when parsing a given file."""
     pass
 
 
