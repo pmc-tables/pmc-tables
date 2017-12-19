@@ -1,6 +1,6 @@
 package:
   name: pmc_tables
-  version: 0.1.2-dev
+  version: 0.1.2
 
 source:
   path: ../
