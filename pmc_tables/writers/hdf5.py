@@ -27,24 +27,41 @@ def write_hdf5_metadata(key: str, value: dict, store: pd.HDFStore):
             raise pmc_tables.ReservedAttributeError(attr_key)  # type: ignore
         try:
             node._f_setattr(attr_key, attr_value)
+        except tables.exceptions.HDF5ExtError as e:
+            logger.error("Failed setting attribute %s to %s (%s: %s).", attr_key, attr_value,
+                         type(e), e)
         except AttributeError as e:
-            logger.error("An error occured when trying to set attribute %s=%s for key=%s", e,
-                         attr_key, attr_value, key)
+            logger.error("Failed setting attribute %s to %s (%s: %s).", attr_key, attr_value,
+                         type(e), e)
 
 
 def _get_or_create_node(key: str, store: pd.HDFStore) -> tables.Node:
+    node = None
+    # Get the node
     try:
         node = store.get_node(key)
-    except tables.NoSuchNodeError as e:
+    except tables.exceptions.NoSuchNodeError as e:
         logger.warning("Got error: %s", e)
-        node = None
+    # Create the node
     if node is None:
         if not key.startswith('/'):
             key = '/' + key
-        path = op.dirname(key)
-        name = op.basename(key)
-        node = store._handle.create_group(path, name)
+        node = _create_node(key, store)
     assert node is not None
+    return node
+
+
+def _create_node(key: str, store: pd.HDFStore) -> tables.Node:
+    path = op.dirname(key)
+    name = op.basename(key)
+    try:
+        node = store._handle.create_group(path, name)
+    except tables.NoSuchNodeError as e:
+        if path != '/':
+            _create_node(path, store)
+            node = store._handle.create_group(path, name)
+        else:
+            raise e
     return node
 
 
