@@ -2,7 +2,7 @@
 
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
-__version__ = '0.1.1'
+__version__ = '0.1.2-dev'
 
 from .ftp_client import *
 from .pmc_tables import *
