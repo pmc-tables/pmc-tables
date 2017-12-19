@@ -12,6 +12,7 @@ from typing import List, NamedTuple, Tuple
 
 import pandas as pd
 
+import pmc_tables
 from pmc_tables.utils import compress_to_b85
 
 from ._common import parser
@@ -25,6 +26,7 @@ class TableWrapRow(NamedTuple):
     label: str
     caption: str
     footer: str
+    orientation: str
 
 
 def read_xml(table: bytes) -> pd.DataFrame:
@@ -51,17 +53,29 @@ def xml_parser(xml_file: Path) -> List[Tuple[str, dict, pd.DataFrame]]:
                   'table_html': compress_to_b85(table_bytes).decode('ascii')},
                  table_df,
             ))
-    assert len(data) == num_tables
+    if len(data) != num_tables:
+        raise pmc_tables.ParserError(  # type: ignore
+            "Number of data points is different than the number of tables."
+            f"({len(data)} != {num_tables})")
     return data
 
 
 def _process_table_wrap(table_wrap: ET.Element) -> Tuple[TableWrapRow, List[ET.Element]]:
+    """
+    To do:
+        - Figure out what `alternatives`, `graphic`, `object-id` stands for.
+    """
     # Id
     id_ = table_wrap.get('id')
     assert id_ is not None
+    # Orientation
+    orientation = table_wrap.get('orientation')
+    orientation_text = orientation if orientation else ""
+    assert isinstance(orientation_text, str)
     # Attrib
-    attrib_set = set(table_wrap.attrib)
-    assert not attrib_set - {'id', 'position'}, attrib_set
+    attrib_set = set(table_wrap.attrib) - {'id', 'position', 'orientation'}
+    if attrib_set:
+        logger.warning("Unexpected table-wrap `attrib_set`: %s", attrib_set)
     # Label
     label = table_wrap.find('label')
     label_text = label.text if label is not None else ""
@@ -75,9 +89,11 @@ def _process_table_wrap(table_wrap: ET.Element) -> Tuple[TableWrapRow, List[ET.E
     footer_text = caption_to_string(footer)
     # Other children
     children_set = {e.tag for e in table_wrap.getchildren()}
-    assert not children_set - {'label', 'caption', 'table', 'table-wrap-foot'}, children_set
+    children_set -= {'label', 'caption', 'table', 'table-wrap-foot'}
+    if children_set:
+        logger.warning("Unexpected table-wrap `children_set`: %s", children_set)
     # Return
-    return TableWrapRow(id_, label_text, caption_text, footer_text), tables
+    return TableWrapRow(id_, label_text, caption_text, footer_text, orientation_text), tables
 
 
 def caption_to_string(element: ET.Element) -> str:
@@ -90,12 +106,21 @@ def caption_to_string(element: ET.Element) -> str:
 
 
 def _process_table(table: ET.Element) -> bytes:
+    """
+    To do:
+        - Figure out what `summary` tag contains.
+    """
     # Attrib
     attrib_set = set(table.attrib)
-    assert not attrib_set - {'frame', 'rules'}, attrib_set
+    attrib_set -= {'frame', 'border', 'rules', 'style', 'width'}
+    if attrib_set:
+        logger.warning("Unexpected table `attrib_set`: %s", attrib_set)
     # Children
     children_set = {e.tag for e in table.getchildren()}
-    assert not children_set - {'thead', 'tbody'}, children_set
+    children_set -= {'thead', 'tbody'}
+    if children_set:
+        raise pmc_tables.ParserError(  # type: ignore
+            f"Unexpected table `children_set`: {children_set}")
     # DataFrame
     table_bytes = ET.tostring(table)
     return table_bytes
