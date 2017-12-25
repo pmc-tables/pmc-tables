@@ -54,7 +54,7 @@ def xml_parser(xml_file: Path) -> List[Tuple[str, dict, pd.DataFrame]]:
                  table_df,
             ))
     if len(data) != num_tables:
-        raise pmc_tables.ParserError(  # type: ignore
+        raise pmc_tables.errors.ParserError(  # type: ignore
             "Number of data points is different than the number of tables."
             f"({len(data)} != {num_tables})")
     return data
@@ -119,7 +119,7 @@ def _process_table(table: ET.Element) -> bytes:
     children_set = {e.tag for e in table.getchildren()}
     children_set -= {'thead', 'tbody'}
     if children_set:
-        raise pmc_tables.ParserError(  # type: ignore
+        raise pmc_tables.errors.ParserError(  # type: ignore
             f"Unexpected table `children_set`: {children_set}")
     # DataFrame
     table_bytes = ET.tostring(table)

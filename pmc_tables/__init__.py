@@ -4,8 +4,8 @@ __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
 __version__ = '0.1.2'
 
+__all__ = ['extern', 'errors', 'utils', 'loaders', 'writers', 'parsers', 'fixers']
+from . import *
+
 from .ftp_client import *
 from .pmc_tables import *
-
-__all__ = ['errors', 'utils', 'loaders', 'writers', 'parsers', 'fixers']
-from . import *

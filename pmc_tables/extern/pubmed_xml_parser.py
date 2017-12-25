@@ -57,48 +57,59 @@ def _process_child(child):
     return row
 
 
+def _get_text_attr(attr):
+    if attr is None:
+        return None
+    elif not hasattr(attr, 'text') or attr.text is None:
+        return None
+    else:
+        return attr.text.strip()
+
+
 def _find_pmid(child) -> int:
     pmid = child.find('MedlineCitation/PMID')
-    return None if pmid is None else int(pmid.text.strip())
+    pmid_text = _get_text_attr(pmid)
+    return int(pmid_text) if pmid_text else None
 
 
 def _find_title(child) -> str:
     title = child.find('MedlineCitation/Article/ArticleTitle')
-    return None if title is None else title.text.strip()
+    return _get_text_attr(title)
 
 
 def _find_authors(child):
     authors = child.findall('MedlineCitation/Article/AuthorList/Author/LastName')
-    return [a.text.strip() for a in authors]
+    return [_get_text_attr(a) for a in authors]
 
 
 def _find_journal(child):
     journal = child.find('MedlineCitation/MedlineJournalInfo/MedlineTA')
-    return None if journal is None else journal.text.strip()
+    return _get_text_attr(journal)
 
 
 def _find_year_published(child):
     year_published = child.find('MedlineCitation/Article/Journal/JournalIssue/PubDate/Year')
-    return None if year_published is None else int(year_published.text.strip())
+    year_published_text = _get_text_attr(year_published)
+    return int(year_published_text) if year_published_text else None
 
 
 def _find_abstract(child) -> str:
     abstract = child.find('MedlineCitation/Article/Abstract/AbstractText')
-    return None if abstract is None else abstract.text.strip()
+    return _get_text_attr(abstract)
 
 
 def _find_mesh_terms(child):
     mesh_terms = child.findall('MedlineCitation/MeshHeadingList/MeshHeading/DescriptorName')
-    return [v.text.strip() for v in mesh_terms]
+    return [_get_text_attr(v) for v in mesh_terms]
 
 
 def _find_doi(child) -> str:
     ids = child.findall('PubmedData/ArticleIdList/ArticleId')
     ids = [id_ for id_ in ids if id_.attrib['IdType'] == 'doi']
-    return None if not ids else ids[0].text.strip()
+    return _get_text_attr(ids[0]) if ids else None
 
 
 def _find_pmc(child) -> str:
     ids = child.findall('PubmedData/ArticleIdList/ArticleId')
     ids = [id_ for id_ in ids if id_.attrib['IdType'] == 'pmc']
-    return None if not ids else ids[0].text.strip()
+    return _get_text_attr(ids[0]) if ids else None

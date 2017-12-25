@@ -12,14 +12,20 @@ import pmc_tables
 logger = logging.getLogger(__name__)
 
 
-def save_archive_to_hdf5(archive: zipfile.ZipFile, store: pd.HDFStore) -> None:
+def save_archive_to_hdf5(archive: zipfile.ZipFile, store: pd.HDFStore, swallow_errors=True) -> dict:
     """Save file from an open ZIP archive into an open HDF5 file."""
     # Info
-    with archive.open('info.json') as fin:
-        info = json.load(fin)  # type: ignore
+    try:
+        with archive.open('info.json') as fin:
+            info = json.load(fin)  # type: ignore
+    except KeyError as e:
+        raise pmc_tables.errors.MalformedArchiveError(str(e))
     info['status'] = 'success'
     pmc_id = info['pmc_id']
     logger.debug("pmc_id: `%s`", pmc_id)
+    if pmc_id == 'PMC5421321':
+        logger.info("Skipping blacklisted PMC ID `%s`...", pmc_id)
+        return
     # Don't process a PMC node if it already exists
     if _node_exists(pmc_id, store):
         logger.info("PMC id `%s` already exists. Skipping...", pmc_id)
@@ -48,8 +54,11 @@ def save_archive_to_hdf5(archive: zipfile.ZipFile, store: pd.HDFStore) -> None:
                     table_info['status'] = 'error'
                     table_info['final_error'] = str(type(e))
                     table_info['final_error_message'] = str(e)
+                    if not swallow_errors:
+                        raise e
                 pmc_tables.writers.write_hdf5_metadata(key, table_info, store)
     pmc_tables.writers.write_hdf5_metadata(f"/{pmc_id}", info, store)
+    return info
 
 
 def _node_exists(pmc_id, store):

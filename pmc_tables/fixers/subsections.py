@@ -9,7 +9,7 @@ from ._errors import _FixDoesNotApplyError
 
 def fix_subsections(df: pd.DataFrame, info: dict) -> pd.DataFrame:
     """Treat rows which contain only a single element as a second index."""
-    applicable_parsers = [pmc_tables.xml_parser.__name__]
+    applicable_parsers = [pmc_tables.parsers.xml_parser.__name__]
     if info['parser_name'] not in applicable_parsers:
         raise _FixDoesNotApplyError(f"This fix only applies to parsers {applicable_parsers}.")
     index_ = []

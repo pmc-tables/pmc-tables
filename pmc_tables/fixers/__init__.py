@@ -19,14 +19,14 @@ def fix_and_write_hdf5_table(key: str, df: pd.DataFrame, store: pd.HDFStore, inf
     # Easy fixes
     df = _apply_fixes(df, info, default_fixers)
     try:
-        return pmc_tables.write_hdf5_table(key, df, store)  # type: ignore
+        return pmc_tables.writers.write_hdf5_table(key, df, store)  # type: ignore
     except HDF5_WRITER_EXCEPTIONS as e:
         logger.warning("Encountered error `%s`", e)
         info['error_message'] = str(e)
     # More involved fixes
     df = _apply_fixes(df, info, error_fixers)
     try:
-        return pmc_tables.write_hdf5_table(key, df, store)  # type: ignore
+        return pmc_tables.writers.write_hdf5_table(key, df, store)  # type: ignore
     except HDF5_WRITER_EXCEPTIONS as e2:
         info['error_message_2'] = str(e2)
         raise e2
