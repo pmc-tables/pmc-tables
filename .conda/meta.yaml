@@ -23,6 +23,7 @@ requirements:
     - selenium
     - numpy
     - pandas
+    - xlrd
     - pyarrow
     - pytables
     - lxml
