@@ -15,5 +15,5 @@ Extract relational tables from PubMed Central.
 ## Additional resources
 
 * [Data package](https://gitlab.com/datapkg/pmc-tables-pipeline) - Repository of Jupyter notebooks showing how to run the entire PMC tables pipeline.
-* [Project report](https://gitlab.com/strokach/courses/CSC2525/raw/master/project/paper.pdf) - Project report in which I describe PMC tables.
+* [Project report](https://gitlab.com/strokach/courses/CSC2525/blob/master/project/paper.pdf) - Project report in which I describe PMC tables.
 * [Project presentation](https://docs.google.com/presentation/d/1oSOegvLNX5IsO4RpASwptsjSnoC9DsfBDnIT908QOZU/edit?usp=sharing) - Slides for a course presentation in which I describe PMC tables.
