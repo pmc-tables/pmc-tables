@@ -39,7 +39,7 @@ test_requirements = [
 
 setup(
     name='pmc_tables',
-    version='0.1.3-dev',
+    version='0.1.3',
     description="Extract relational tables from PubMed Central.",
     long_description=read_md('README.md') + '\n\n' + read_md('HISTORY.md'),
     author="Alexey Strokach",
