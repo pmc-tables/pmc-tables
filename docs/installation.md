@@ -29,7 +29,7 @@ git clone git://gitlab.com/ostrokach/pmc_tables
 Or download the [tarball]:
 
 ```bash
-curl -OL https://gitlab.com/ostrokach/pmc_tables/tarball/master
+curl -OL https://gitlab.com/ostrokach/pmc_tables/repository/master/archive.tar
 ```
 
 Once you have a copy of the source, you can install it with:
@@ -39,4 +39,4 @@ python setup.py install
 ```
 
 [GitLab repo]: https://gitlab.com/ostrokach/pmc_tables
-[tarball]: https://gitlab.com/ostrokach/pmc_tables/tarball/master
+[tarball]: https://gitlab.com/ostrokach/pmc_tables/repository/master/archive.tar
