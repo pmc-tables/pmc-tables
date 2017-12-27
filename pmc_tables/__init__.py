@@ -2,7 +2,7 @@
 
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
-__version__ = '0.1.3'
+__version__ = '0.1.4.dev0'
 
 __all__ = ['extern', 'errors', 'utils', 'loaders', 'writers', 'parsers', 'fixers']
 from . import *
