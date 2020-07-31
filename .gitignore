@@ -63,3 +63,5 @@ target/
 
 # AS
 .mypy_cache/
+notebooks/*
+!notebooks/*.ipynb
